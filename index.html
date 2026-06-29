@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="BOB — Sovereign Compliance Agent for UiPath. Evidence-or-Silence document reasoning with AWS Bedrock, Claude Sonnet 4.6, and SHA-256 WORM audit sealing.">
+  <meta property="og:title" content="BOB — Sovereign Compliance Agent for UiPath">
+  <meta property="og:description" content="UiPath Robot submits documents. BOB reasons through Claude Sonnet 4.6 on AWS Bedrock. Every verdict is EVIDENCE or SILENCE and SHA-256 WORM sealed.">
+  <meta property="og:type" content="website">
+  <title>BOB — Sovereign Compliance Agent for UiPath</title>
+  <style>
+    :root {
+      --bg: #000;
+      --panel: #031008;
+      --panel-2: #06170d;
+      --line: #00ff88;
+      --line-soft: rgba(0, 255, 136, .32);
+      --text: #dcffe9;
+      --muted: #7ecfa7;
+      --warn: #ffe66d;
+      --red: #ff5c7a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", "Courier New", monospace;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        linear-gradient(rgba(0, 255, 136, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 136, .035) 1px, transparent 1px),
+        radial-gradient(circle at 75% 15%, rgba(0, 255, 136, .12), transparent 28rem),
+        radial-gradient(circle at 20% 80%, rgba(0, 255, 136, .08), transparent 24rem),
+        #000;
+      background-size: 32px 32px, 32px 32px, auto, auto, auto;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, .035) 0,
+        rgba(255, 255, 255, .035) 1px,
+        transparent 1px,
+        transparent 5px
+      );
+      mix-blend-mode: screen;
+      opacity: .22;
+      z-index: 10;
+    }
+
+    a {
+      color: var(--line);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 0 32px;
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+    }
+
+    .mark {
+      display: inline-grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      box-shadow: 0 0 22px rgba(0, 255, 136, .25);
+    }
+
+    .hero {
+      display: grid;
+      gap: 28px;
+      grid-template-columns: 1.1fr .9fr;
+      align-items: stretch;
+      padding: 38px;
+      border: 1px solid var(--line-soft);
+      background: linear-gradient(135deg, rgba(0, 255, 136, .08), rgba(0, 0, 0, .72) 45%, rgba(0, 255, 136, .045));
+      box-shadow: 0 0 60px rgba(0, 255, 136, .08);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 760px;
+      color: #fff;
+      font-size: clamp(40px, 7vw, 84px);
+      line-height: .94;
+      letter-spacing: -.055em;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      color: #fff;
+      font-size: 22px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      color: var(--line);
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .lede {
+      margin-top: 22px;
+      max-width: 760px;
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      background: var(--line);
+      color: #001b0d;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      box-shadow: 0 0 28px rgba(0, 255, 136, .24);
+    }
+
+    .button.secondary {
+      background: transparent;
+      color: var(--line);
+    }
+
+    .status-card,
+    .card {
+      border: 1px solid var(--line-soft);
+      background: rgba(0, 0, 0, .62);
+    }
+
+    .status-card {
+      display: grid;
+      align-content: space-between;
+      gap: 20px;
+      padding: 24px;
+    }
+
+    .verdict {
+      display: grid;
+      gap: 12px;
+    }
+
+    .verdict-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(0, 255, 136, .2);
+      background: rgba(0, 255, 136, .045);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .verdict-line strong {
+      color: var(--line);
+    }
+
+    .verdict-line.warn strong {
+      color: var(--warn);
+    }
+
+    .hash {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    section {
+      margin-top: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      padding: 20px;
+      min-height: 172px;
+    }
+
+    .card strong {
+      color: #fff;
+    }
+
+    pre {
+      margin: 0;
+      overflow-x: auto;
+      padding: 22px;
+      border: 1px solid var(--line-soft);
+      background: #010603;
+      color: var(--line);
+      line-height: 1.35;
+      box-shadow: inset 0 0 28px rgba(0, 255, 136, .04);
+    }
+
+    .theorems {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .theorem pre {
+      min-height: 178px;
+      color: var(--text);
+    }
+
+    .theorem-title {
+      color: var(--line);
+      font-weight: 900;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: 16px;
+      border: 1px solid rgba(0, 255, 136, .18);
+      background: rgba(0, 255, 136, .035);
+    }
+
+    .flow-row b {
+      color: var(--line);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(0, 255, 136, .18);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 860px) {
+      .hero,
+      .grid,
+      .theorems {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 24px;
+      }
+
+      .flow-row {
+        grid-template-columns: 1fr;
+      }
+
+      .footer {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="mark">BOB</span>
+        <span>UiPath AgentHack 2026</span>
+      </div>
+      <span>Evidence or Silence</span>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <h1>BOB — Sovereign Compliance Agent for UiPath</h1>
+          <p class="lede">
+            UiPath Robot submits documents. BOB reasons with Claude Sonnet 4.6 through AWS Bedrock.
+            The only valid outputs are EVIDENCE or SILENCE. Every verdict is SHA-256 WORM sealed.
+          </p>
+          <div class="cta-row">
+            <a class="button" href="https://github.com/SNAPKITTYWEST/bob-orchestrator">View GitHub</a>
+            <a class="button secondary" href="#architecture">Architecture</a>
+          </div>
+        </div>
+
+        <aside class="status-card" aria-label="Live compliance verdict panel">
+          <div>
+            <h3>Compliance Runtime</h3>
+            <div class="verdict">
+              <div class="verdict-line"><span>CLAIM</span><strong>RECEIVED</strong></div>
+              <div class="verdict-line"><span>REASONER</span><strong>BEDROCK / SONNET 4.6</strong></div>
+              <div class="verdict-line"><span>VERDICT</span><strong>EVIDENCE</strong></div>
+              <div class="verdict-line warn"><span>NO PROOF</span><strong>SILENCE</strong></div>
+            </div>
+          </div>
+          <div>
+            <h3>WORM Seal</h3>
+            <div class="hash">sha256: 83c34fa2d9f1b0c8a1770c742e0a64d1...</div>
+          </div>
+        </aside>
+      </section>
+
+      <section>
+        <h2>What It Does</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>1. Robot Submits</h3>
+            <p><strong>UiPath Robot</strong> sends contracts, invoices, claims, reports, or exception packets into BOB for compliance reasoning.</p>
+          </article>
+          <article class="card">
+            <h3>2. BOB Reasons</h3>
+            <p><strong>BOB</strong> asks Claude Sonnet 4.6 through AWS Bedrock for grounded compliance analysis against policy and evidence.</p>
+          </article>
+          <article class="card">
+            <h3>3. WORM Seals</h3>
+            <p><strong>EVIDENCE</strong> allows execution. <strong>SILENCE</strong> blocks action. The decision is SHA-256 sealed into an append-only audit trail.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="architecture">
+        <h2>Architecture Diagram</h2>
+        <pre>
+┌──────────────────┐
+│  UiPath Robot    │
+│  Document Intake │
+└────────┬─────────┘
+         │ submit(document, claim, process_id)
+         ▼
+┌─────────────────────────────────────────────┐
+│ BOB ORCHESTRATOR                            │
+│ - normalize packet                          │
+│ - attach Trust Deed policy                  │
+│ - request evidence                          │
+│ - reject unsupported action                 │
+└────────┬───────────────────────┬────────────┘
+         │                       │
+         ▼                       ▼
+┌─────────────────────┐   ┌──────────────────┐
+│ AWS Bedrock         │   │ Policy + Evidence │
+│ Claude Sonnet 4.6   │   │ Trust Deed Rules  │
+└────────┬────────────┘   └────────┬─────────┘
+         │ reasoned verdict         │ constraints
+         └──────────────┬───────────┘
+                        ▼
+              ┌──────────────────┐
+              │ EVIDENCE/SILENCE │
+              │ no third option  │
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │ SHA-256 WORM Log │
+              │ immutable audit  │
+              └────────┬─────────┘
+                       │
+                       ▼
+              ┌──────────────────┐
+              │ UiPath Continues │
+              │ only on EVIDENCE │
+              └──────────────────┘
+        </pre>
+      </section>
+
+      <section>
+        <h2>Execution Flow</h2>
+        <div class="flow">
+          <div class="flow-row">
+            <b>Input</b>
+            <p>UiPath submits a document bundle and a requested action: approve, escalate, pay, file, route, or stop.</p>
+          </div>
+          <div class="flow-row">
+            <b>Reason</b>
+            <p>BOB invokes Claude Sonnet 4.6 on AWS Bedrock with policy context and refuses unsupported claims.</p>
+          </div>
+          <div class="flow-row">
+            <b>Verdict</b>
+            <p>EVIDENCE means the robot may continue. SILENCE means the robot must stop and escalate to a human.</p>
+          </div>
+          <div class="flow-row">
+            <b>Seal</b>
+            <p>Every verdict becomes a SHA-256 WORM receipt: payload hash, policy hash, timestamp, and process ID.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Formal Theorems</h2>
+        <div class="theorems">
+          <article class="theorem">
+            <pre><span class="theorem-title">THEOREM: Verdict Completeness</span>
+
+For every UiPath document packet P
+and every requested action A:
+
+BOB(P, A) returns exactly one verdict:
+
+  EVIDENCE  -> action may proceed
+  SILENCE   -> action is blocked
+
+No ambiguous, partial, or speculative
+verdict is valid.</pre>
+          </article>
+
+          <article class="theorem">
+            <pre><span class="theorem-title">THEOREM: WORM Integrity</span>
+
+For every verdict V emitted by BOB:
+
+seal = SHA256(
+  packet_hash,
+  policy_hash,
+  verdict,
+  timestamp,
+  previous_seal
+)
+
+Any mutation changes the seal.
+Therefore the audit chain is tamper-evident.</pre>
+          </article>
+
+          <article class="theorem">
+            <pre><span class="theorem-title">THEOREM: Trust Deed Soundness</span>
+
+If Trust Deed policy D forbids action A,
+then no model output can authorize A.
+
+Model reasoning is advisory.
+Trust Deed constraints are binding.
+
+Therefore policy cannot be bypassed
+by fluent language.</pre>
+          </article>
+
+          <article class="theorem">
+            <pre><span class="theorem-title">THEOREM: Human-in-Loop Guarantee</span>
+
+If BOB returns SILENCE,
+UiPath execution halts.
+
+The packet is sealed,
+the reason is logged,
+and the workflow enters human review.
+
+Therefore unsupported automation
+cannot silently continue.</pre>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>Submission Repository</h2>
+        <pre>git clone https://github.com/SNAPKITTYWEST/bob-orchestrator
+cd bob-orchestrator
+
+# BOB speaks only when evidence exists.
+# SILENCE is a valid safety result.</pre>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>BOB / UiPath AgentHack 2026 / Sovereign compliance automation</span>
+      <a href="https://github.com/SNAPKITTYWEST/bob-orchestrator">github.com/SNAPKITTYWEST/bob-orchestrator</a>
+    </footer>
+  </div>
+</body>
+</html>
